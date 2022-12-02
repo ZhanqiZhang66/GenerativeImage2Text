@@ -25,6 +25,8 @@ def main(args):
         batch_size_test=args.batch_size_test,
         max_length=args.max_length,
         crop_size=args.crop_size,
+        use_image=args.use_image,
+        use_pose=args.use_pose,
         dataloader_num_workers=args.dataloader_num_workers
     )
 

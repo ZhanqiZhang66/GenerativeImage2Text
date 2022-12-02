@@ -1,5 +1,6 @@
 from .torch_common import resize_2d_pos_embed
 import torch
+from torch import nn
 from .layers.CLIP import clip
 from .layers.decoder import CaptioningModel
 from .layers.decoder import (TransformerDecoderTextualHead,
@@ -7,12 +8,14 @@ from .layers.decoder import (TransformerDecoderTextualHead,
 
 
 def get_git_model(tokenizer, param):
+    visual_feature_size=param.get('visual_feature_size', 768)
+
     image_encoder = get_image_encoder(
         param.get('image_encoder_type', 'CLIPViT_B_16'),
         input_resolution=param.get('test_crop_size', 224),
     )
     text_decoder = TransformerDecoderTextualHead(
-        visual_feature_size=param.get('visual_feature_size', 768),
+        visual_feature_size=visual_feature_size,
         vocab_size=30522,
         hidden_size=768,
         num_layers=6,
@@ -39,10 +42,22 @@ def get_git_model(tokenizer, param):
         beam_size=4,
         length_penalty=0.6,
     )
+    pose_encoder = nn.Sequential(
+        nn.Linear(32, visual_feature_size),
+        nn.ReLU(),
+        nn.Linear(visual_feature_size, visual_feature_size),
+        nn.ReLU(),
+        nn.Linear(visual_feature_size, visual_feature_size * 4),
+        nn.ReLU(),
+        nn.Dropout(p=0.1),
+        nn.Linear(visual_feature_size * 4, visual_feature_size),
+        nn.ReLU(),
+    )
 
     model = CaptioningModel(
         image_encoder,
         text_decoder,
+        pose_encoder,
         decoder=decoder,
         sos_index=tokenizer.cls_token_id,
         eos_index=tokenizer.sep_token_id,

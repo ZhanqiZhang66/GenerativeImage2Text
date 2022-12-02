@@ -776,6 +776,7 @@ class CaptioningModel(nn.Module):
         self,
         visual,
         textual,
+        pose_encoder,
         sos_index=1,
         eos_index=2,
         decoder=None,
@@ -792,6 +793,7 @@ class CaptioningModel(nn.Module):
         super().__init__()
         self.image_encoder = visual
         self.textual = textual
+        self.pose_encoder = pose_encoder
         self.padding_idx = self.textual.padding_idx
 
         # These boundary indices are needed for beam search.
@@ -835,20 +837,28 @@ class CaptioningModel(nn.Module):
             )
         self.num_image_with_embedding = num_image_with_embedding
 
-    def forward(self, batch, infer):
+    def forward(self, batch, infer=False):
+        visual_features = []
+
         if 'image' in batch:
             if isinstance(batch['image'], (list, tuple)):
                 features = [self.image_encoder(im) for im in batch['image']]
                 if self.num_image_with_embedding:
                     features = [f + e for f, e in zip(features, self.img_temperal_embedding)]
                 if self.pooling_images is None:
-                    visual_features = torch.cat(features, dim=1)
+                    visual_features.append(torch.cat(features, dim=1))
                 elif self.pooling_images == 'avg':
-                    visual_features = torch.stack(features, dim=1).mean(dim=1)
+                    visual_features.append(torch.stack(features, dim=1).mean(dim=1))
                 else:
                     raise NotImplementedError
             else:
-                visual_features = self.image_encoder(batch['image'])
+                visual_features.append(self.image_encoder(batch['image']))
+        
+        if 'pose' in batch:
+            visual_features.append(self.pose_encoder(batch['pose']).unsqueeze(dim=1))
+
+        if visual_features:
+            visual_features = torch.cat(visual_features, dim=-2)
         else:
             visual_features = None
 
@@ -859,7 +869,7 @@ class CaptioningModel(nn.Module):
 
     def forward_one_ce(self, batch, visual_features):
         has_image = (visual_features is not None)
-        assert has_image == ('image' in batch)
+        assert has_image == ('image' in batch or 'pose' in batch)
             
         #if self.use_masked_as_input_for_train:
             #caption_token_input = batch["masked_caption_tokens"]

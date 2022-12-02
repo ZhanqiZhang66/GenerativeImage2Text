@@ -70,7 +70,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
 
         self.log_dict(
             {'train_loss': loss},
-            batch_size=batch['image'].size(0),
+            batch_size=len(batch['sample_id']),
             on_epoch=True,
             on_step=True,
             logger=True
@@ -84,7 +84,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
 
         self.log_dict(
             {'val_loss': loss},
-            batch_size=batch['image'].size(0),
+            batch_size=len(batch['sample_id']),
             on_epoch=True,
             on_step=True,
             logger=True
@@ -93,9 +93,13 @@ class PoseImageCaptioningModel(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        image = batch['image']
+        inputs = {}
+        if 'image' in batch:
+            inputs['image'] = batch['image']
+        if 'pose' in batch:
+            inputs['pose'] = batch['pose']
         references = batch['reference']
-        result = self({'image': image}, infer=True)
+        result = self(inputs, infer=True)
         predictions = self.tokenizer.batch_decode(
             result['predictions'],
             skip_special_tokens=True
@@ -123,7 +127,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
                 'test_bleu': mean_bleu,
                 # 'test_bert_score_f1': bert_score_f1.mean()
             },
-            batch_size=batch['image'].size(0),
+            batch_size=len(batch['sample_id']),
             on_epoch=True,
             on_step=True,
             logger=True

@@ -12,6 +12,8 @@ from torchvision.transforms import (CenterCrop, Compose, Normalize, Resize,
 from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
 
+import numpy as np
+
 
 class CHPDatasetBase(Dataset):
     def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int) -> None:
@@ -31,45 +33,29 @@ class CHPDatasetBase(Dataset):
             ),
         ])
 
+        self.pose_dict = {}
+        data_path = os.path.dirname(csv_path)
+        for file_name in os.listdir(os.path.join(data_path, 'pose_clean')):
+            df = pd.read_csv(os.path.join(data_path, 'pose_clean', file_name))
+            assert file_name.endswith('.csv')
+            self.pose_dict[file_name[:-4]] = df.set_index('frame')
+
     def load_image(self, image_path: str):
         image = Image.open(image_path).convert('RGB')
         return self.image_transform(image)
 
-    def __getitem__(self, index):
-        row = self.data.iloc[index]
-
-        # tokenize reference description
-        target_encoding = self.tokenizer(
-            row['description'],
-            padding=False,
-            truncation=True,
-            max_length=self.max_length,
-            return_token_type_ids=False,
-            return_attention_mask=False,
-            return_tensors='pt'
-        )
-        caption_tokens = target_encoding['input_ids'].squeeze()
-        need_predict = torch.ones_like(caption_tokens)
-        need_predict[0] = 0
-
-        # load image
-        image_path = os.path.join(self.image_path, row['image_name'])
-        image = self.load_image(image_path)
-
-        return {
-            'sample_id': row['sample_id'],
-            'caption_tokens': caption_tokens,
-            'need_predict': need_predict,
-            'image': image,
-        }
+    def load_pose(self, clip: str, frame: int):
+        return self.pose_dict[clip].loc[frame].to_numpy(dtype=np.float32)
 
     def __len__(self):
         return self.data.shape[0]
 
 
 class CHPDataset(CHPDatasetBase):
-    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int) -> None:
+    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool) -> None:
         super().__init__(csv_path, tokenizer, max_length, crop_size)
+        self.image = image
+        self.pose = pose
 
     def __getitem__(self, index):
         row = self.data.iloc[index]
@@ -88,20 +74,30 @@ class CHPDataset(CHPDatasetBase):
         need_predict = torch.ones_like(caption_tokens)
         need_predict[0] = 0
 
-        # load image
-        image_path = os.path.join(self.image_path, row['image_name'])
-        image = self.load_image(image_path)
-
-        return {
+        batch = {
             'sample_id': row['sample_id'],
             'caption_tokens': caption_tokens,
             'need_predict': need_predict,
-            'image': image,
         }
 
+        if self.image:
+            # load image
+            image_path = os.path.join(self.image_path, row['image_name'])
+            image = self.load_image(image_path)
+            batch['image'] = image
+
+        if self.pose:
+            batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
+
+        return batch
+
+
 class CHPTestDataset(CHPDatasetBase):
-    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int) -> None:
+    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool) -> None:
         super().__init__(csv_path, tokenizer, max_length, crop_size)
+        self.image = image
+        self.pose = pose
+
 
     def __getitem__(self, index):
         row = self.data.iloc[index]
@@ -110,11 +106,23 @@ class CHPTestDataset(CHPDatasetBase):
         image_path = os.path.join(self.image_path, row['image_name'])
         image = self.load_image(image_path)
 
-        return {
+        batch = {
             'sample_id': row['sample_id'],
             'reference': row['description'],
-            'image': image,
         }
+
+        if self.image:
+            # load image
+            image_path = os.path.join(self.image_path, row['image_name'])
+            image = self.load_image(image_path)
+            batch['image'] = image
+
+        if self.pose:
+            batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
+
+        return batch
+
+
 
 class CHPDataModule(pl.LightningDataModule):
     def __init__(
@@ -125,7 +133,9 @@ class CHPDataModule(pl.LightningDataModule):
         batch_size_test: int,
         max_length: Optional[int],
         crop_size: int,
-        dataloader_num_workers: int
+        dataloader_num_workers: int,
+        use_image: bool,
+        use_pose: bool
     ) -> None:
         super().__init__()
         self.data_path = data_path
@@ -134,6 +144,8 @@ class CHPDataModule(pl.LightningDataModule):
         self.max_length = max_length
         self.crop_size = crop_size
         self.dataloader_num_workers = dataloader_num_workers
+        self.use_image = use_image
+        self.use_pose = use_pose
 
         self.save_hyperparameters(ignore='tokenizer')
 
@@ -172,6 +184,18 @@ class CHPDataModule(pl.LightningDataModule):
             type=int,
             default=224
         )
+        parser.add_argument(
+            '--no_image',
+            dest='use_image',
+            action='store_const',
+            const=False, default=True
+        )
+        parser.add_argument(
+            '--no_pose',
+            dest='use_pose',
+            action='store_const',
+            const=False, default=True
+        )
         return parent_parser
 
     def setup(self, stage: Optional[str] = None):
@@ -179,21 +203,27 @@ class CHPDataModule(pl.LightningDataModule):
             os.path.join(self.data_path, 'train.csv'),
             self.tokenizer,
             self.max_length,
-            self.crop_size
+            self.crop_size,
+            image=self.use_image,
+            pose=self.use_pose,
         )
 
         self.val_dataset = CHPDataset(
             os.path.join(self.data_path, 'val.csv'),
             self.tokenizer,
             self.max_length,
-            self.crop_size
+            self.crop_size,
+            image=self.use_image,
+            pose=self.use_pose,
         )
 
         self.test_dataset = CHPTestDataset(
             os.path.join(self.data_path, 'test.csv'),
             self.tokenizer,
             self.max_length,
-            self.crop_size
+            self.crop_size,
+            image=self.use_image,
+            pose=self.use_pose,
         )
 
     def train_dataloader(self):
