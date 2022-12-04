@@ -33,7 +33,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
                 f'aux_data/models/{model_name}/parameter.yaml')
         self.git_model = get_git_model(self.tokenizer, git_param)
         pretrained = f'output/{model_name}/snapshot/model.pt'
-        checkpoint = torch_load(pretrained)['model']
+        checkpoint = torch.load(pretrained)  #torch_load(pretrained)['model']
         load_state_dict(self.git_model, checkpoint)
         self.test_results = None
 

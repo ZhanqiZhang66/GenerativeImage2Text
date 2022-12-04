@@ -27,6 +27,7 @@ def main(args):
         crop_size=args.crop_size,
         use_image=args.use_image,
         use_pose=args.use_pose,
+        use_vae_pose=args.use_vae_pose,
         dataloader_num_workers=args.dataloader_num_workers
     )
 

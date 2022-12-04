@@ -157,7 +157,8 @@ class CHPDataModule(pl.LightningDataModule):
         crop_size: int,
         dataloader_num_workers: int,
         use_image: bool,
-        use_pose: bool
+        use_pose: bool,
+        use_vae_pose: bool
     ) -> None:
         super().__init__()
         self.data_path = data_path
@@ -168,6 +169,7 @@ class CHPDataModule(pl.LightningDataModule):
         self.dataloader_num_workers = dataloader_num_workers
         self.use_image = use_image
         self.use_pose = use_pose
+        self.use_vae_pose = use_vae_pose
 
         self.save_hyperparameters(ignore='tokenizer')
 
@@ -234,6 +236,7 @@ class CHPDataModule(pl.LightningDataModule):
             self.crop_size,
             image=self.use_image,
             pose=self.use_pose,
+            vae_pose=self.use_vae_pose,
         )
 
         self.val_dataset = CHPDataset(
@@ -243,6 +246,7 @@ class CHPDataModule(pl.LightningDataModule):
             self.crop_size,
             image=self.use_image,
             pose=self.use_pose,
+            vae_pose=self.use_vae_pose,
         )
 
         self.test_dataset = CHPTestDataset(
@@ -252,6 +256,7 @@ class CHPDataModule(pl.LightningDataModule):
             self.crop_size,
             image=self.use_image,
             pose=self.use_pose,
+            vae_pose=self.use_vae_pose,
         )
 
     def train_dataloader(self):
