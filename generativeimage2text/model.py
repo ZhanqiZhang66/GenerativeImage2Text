@@ -53,11 +53,15 @@ def get_git_model(tokenizer, param):
         nn.Linear(visual_feature_size * 4, visual_feature_size),
         nn.ReLU(),
     )
+    vae_pose_encoder = nn.Sequential(
+        nn.Identity(),
+    )
 
     model = CaptioningModel(
         image_encoder,
         text_decoder,
         pose_encoder,
+        vae_pose_encoder,
         decoder=decoder,
         sos_index=tokenizer.cls_token_id,
         eos_index=tokenizer.sep_token_id,

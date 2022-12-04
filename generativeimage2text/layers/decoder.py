@@ -777,6 +777,7 @@ class CaptioningModel(nn.Module):
         visual,
         textual,
         pose_encoder,
+        vae_pose_encoder,
         sos_index=1,
         eos_index=2,
         decoder=None,
@@ -794,6 +795,7 @@ class CaptioningModel(nn.Module):
         self.image_encoder = visual
         self.textual = textual
         self.pose_encoder = pose_encoder
+        self.vae_pose_encoder = vae_pose_encoder
         self.padding_idx = self.textual.padding_idx
 
         # These boundary indices are needed for beam search.
@@ -857,6 +859,9 @@ class CaptioningModel(nn.Module):
         if 'pose' in batch:
             visual_features.append(self.pose_encoder(batch['pose']).unsqueeze(dim=1))
 
+        if 'vae_pose' in batch:
+            visual_features.append(self.vae_pose_encoder(batch['vae_pose']).unsqueeze(dim=1))
+
         if visual_features:
             visual_features = torch.cat(visual_features, dim=-2)
         else:
@@ -869,7 +874,7 @@ class CaptioningModel(nn.Module):
 
     def forward_one_ce(self, batch, visual_features):
         has_image = (visual_features is not None)
-        assert has_image == ('image' in batch or 'pose' in batch)
+        assert has_image == ('image' in batch or 'pose' in batch or 'pse_vae' in batch)
             
         #if self.use_masked_as_input_for_train:
             #caption_token_input = batch["masked_caption_tokens"]

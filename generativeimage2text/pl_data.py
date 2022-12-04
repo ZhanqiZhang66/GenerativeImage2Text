@@ -11,7 +11,7 @@ from torchvision.transforms import (CenterCrop, Compose, Normalize, Resize,
                                     ToTensor, InterpolationMode)
 from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
-
+from pathlib import Path
 import numpy as np
 
 
@@ -40,6 +40,18 @@ class CHPDatasetBase(Dataset):
             assert file_name.endswith('.csv')
             self.pose_dict[file_name[:-4]] = df.set_index('frame')
 
+        self.vae_pose_dict = {}
+        curr_pth = Path().absolute()
+        vae_path = os.path.join(curr_pth, 'Bahavior_VAE')
+        model_name = 'Pose-Encoder-Dec1-2022'
+        for file_name in os.listdir(os.path.join(data_path, 'pose_clean')):
+            assert file_name.endswith('.csv')
+            file = file_name[:-4]
+            path_to_latent_vector = os.path.join(vae_path, "results", file, model_name,
+                                                 'kmeans-' + str(10), "")
+            latent_vector = np.load(os.path.join(path_to_latent_vector, 'latent_vector_' + file + '.npy'))
+            self.vae_pose_dict[file] = latent_vector
+
     def load_image(self, image_path: str):
         image = Image.open(image_path).convert('RGB')
         return self.image_transform(image)
@@ -47,15 +59,19 @@ class CHPDatasetBase(Dataset):
     def load_pose(self, clip: str, frame: int):
         return self.pose_dict[clip].loc[frame].to_numpy(dtype=np.float32)
 
+    def load_vae_pose(self, clip: str, frame: int):
+        return self.vae_pose_dict[clip][frame]
+
     def __len__(self):
         return self.data.shape[0]
 
 
 class CHPDataset(CHPDatasetBase):
-    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool) -> None:
+    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool, vae_pose: bool) -> None:
         super().__init__(csv_path, tokenizer, max_length, crop_size)
         self.image = image
         self.pose = pose
+        self.vae_pase = vae_pose
 
     def __getitem__(self, index):
         row = self.data.iloc[index]
@@ -89,15 +105,18 @@ class CHPDataset(CHPDatasetBase):
         if self.pose:
             batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
 
+        if self.vae_pose:
+            batch['vae_pose'] = self.load_vae_pose(row['clip_name'], row['frame'])
+
         return batch
 
 
 class CHPTestDataset(CHPDatasetBase):
-    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool) -> None:
+    def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int, image: bool, pose: bool, vae_pose: bool) -> None:
         super().__init__(csv_path, tokenizer, max_length, crop_size)
         self.image = image
         self.pose = pose
-
+        self.vae_pose = vae_pose
 
     def __getitem__(self, index):
         row = self.data.iloc[index]
@@ -119,6 +138,9 @@ class CHPTestDataset(CHPDatasetBase):
 
         if self.pose:
             batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
+
+        if self.vae_pose:
+            batch['vae_pose'] = self.load_vae_pose(row['clip_name'], row['frame'])
 
         return batch
 
@@ -193,6 +215,12 @@ class CHPDataModule(pl.LightningDataModule):
         parser.add_argument(
             '--no_pose',
             dest='use_pose',
+            action='store_const',
+            const=False, default=True
+        )
+        parser.add_argument(
+            '--no_vae_pose',
+            dest='use_vae_pose',
             action='store_const',
             const=False, default=True
         )

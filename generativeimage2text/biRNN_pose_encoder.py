@@ -14,7 +14,7 @@ import pandas as pd
 from pathlib import Path
 from vame.analysis.community_analysis import  read_config
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-#%% 1.0 video files & directories
+# #%% 1.0 video files & directories
 curr_pth = Path().absolute()
 vae_path = os.path.join(curr_pth, 'Bahavior_VAE')
 Path(vae_path).mkdir(parents=True, exist_ok=True)
@@ -72,4 +72,5 @@ for file in files:
 vame.train_model(config)
 #%% 5. evaluate model
 vame.pose_segmentation(config)
-vame.motif_videos(config, start_frame, videoType='.mpg')
+#%%
+

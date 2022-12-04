@@ -1,0 +1,114 @@
+# Project configurations
+Project: Pose-Encoder
+model_name: VAME
+n_cluster: 10
+pose_confidence: 0.90
+
+# Project path and videos
+project_path: D:\OneDrive - UC San Diego\GitHub\GenerativeImage2Text\Bahavior_VAE\Pose-Encoder-Dec1-2022
+video_sets:
+- BC1AASA
+- BC1ADPI
+- BC1ALKA
+- BC1ALPA
+- BC1ALRO
+- BC1ANBU
+- BC1ANGA
+- BC1ANHE
+- BC1ANWI
+- BC1ASKA
+- BC1ATKU
+- BC1BRBU
+- BC1CISI
+- BC1DOBO
+- BC1JUST
+- BC1KEMA
+- BC1LABO
+- BC1LACA
+- BC1LOKE
+- BC1MAMA
+- BC1MISE
+- BC1MOKI
+- BC1NITA
+- BC1OKBA
+
+# Data
+
+# Data
+all_data: yes
+
+# Creation of train set:
+robust: true
+iqr_factor: 4
+axis:
+savgol_filter: true
+savgol_length: 5
+savgol_order: 2
+test_fraction: 0.1
+
+# RNN model general hyperparameter:
+pretrained_model: None
+pretrained_weights: false
+num_features: 40
+batch_size: 256
+max_epochs: 1000
+model_snapshot: 50
+model_convergence: 50
+transition_function: GRU
+beta: 1
+beta_norm: false
+zdims: 768
+learning_rate: 0.0005
+time_window: 60
+prediction_decoder: 1
+prediction_steps: 30
+noise: false
+scheduler: 1
+scheduler_step_size: 100
+scheduler_gamma: 0.2
+softplus: true
+# Segmentation:
+load_data: -PE-seq-clean
+individual_parameterization: false
+random_state_kmeans: 42
+n_init_kmeans: 15
+
+# Video writer:
+length_of_motif_video: 1000
+
+# UMAP parameter:
+min_dist: 0.1
+n_neighbors: 200
+random_state: 42
+num_points: 30000
+
+# ONLY CHANGE ANYTHING BELOW IF YOU ARE FAMILIAR WITH RNN MODELS
+# RNN encoder hyperparamter:
+hidden_size_layer_1: 256
+hidden_size_layer_2: 256
+dropout_encoder: 0
+
+# RNN reconstruction hyperparameter:
+hidden_size_rec: 256
+dropout_rec: 0
+n_layers: 1
+
+# RNN prediction hyperparamter:
+hidden_size_pred: 256
+dropout_pred: 0
+
+# RNN loss hyperparameter:
+mse_reconstruction_reduction: sum
+mse_prediction_reduction: sum
+kmeans_loss: 10
+kmeans_lambda: 0.1
+anneal_function: linear
+kl_start: 2
+annealtime: 4
+
+# Legacy mode
+legacy: false
+fps: 30
+width: 720
+height: 480
+number_of_examples_each_motif: 20
