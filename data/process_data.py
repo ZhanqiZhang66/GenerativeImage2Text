@@ -5,8 +5,14 @@ import re
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+from argparse import ArgumentParser
 
-np.random.seed(42)
+parser = ArgumentParser()
+parser.add_argument('--seed', type=int, required=True)
+parser.add_argument('--output-path', type=str, required=True)
+args = parser.parse_args()
+
+np.random.seed(args.seed)
 
 num_samples = 2
 
@@ -92,8 +98,10 @@ for file_name in os.listdir('frame'):
                 clip_frames[(clip_name, motif_id, annotation_id)].append(frame)
 # sampled_frames_df = frames_df.groupby(['clip_name', 'motif_id', 'annotation_id']).sample(n=2, replace=True)
 
+unique_descriptions_df = descriptions_df.groupby('description').sample(n=1)
+
 samples = []
-for key, df in descriptions_df.groupby(['clip_name', 'motif_id', 'annotation_id']):
+for key, df in unique_descriptions_df.groupby(['clip_name', 'motif_id', 'annotation_id']):
     duplicated_samples = pd.concat([df] * num_samples, ignore_index=True)
     frames = pd.Series(clip_frames[key], name='frame')
     if len(frames) >= len(duplicated_samples):
@@ -113,7 +121,32 @@ merged['image_name'] = merged.apply(
     lambda row: f'{row["clip_name"]}_{row["frame"]}.png', axis=1)
 merged = merged.drop(columns='unique_id')
 merged = merged.drop_duplicates()
-merged.to_csv('samples.csv', index=False)
 for original, normalized in normalize_word_map.items():
     print(f'{original}\t->\t{normalized}')
-print(merged)
+
+merged.to_csv(os.path.join(args.output_path, 'samples.csv'), index=False)
+
+clips = merged['clip_name'].unique()
+np.random.shuffle(clips)
+shuffled_clips = clips.tolist()
+
+val_size = 300
+test_size = 300
+
+def take(n):
+    clips = []
+    total = 0
+    while total < n:
+        clip = shuffled_clips.pop()
+        clip_df = merged[merged['clip_name'] == clip]
+        clips.append(clip_df)
+        total += len(clip_df)
+    return pd.concat(clips, ignore_index=True)
+
+val_df = take(val_size)
+test_df = take(test_size)
+train_df = merged[merged['clip_name'].isin(shuffled_clips)]
+
+train_df.to_csv(os.path.join(args.output_path, 'train.csv'), index=False)
+val_df.to_csv(os.path.join(args.output_path, 'val.csv'), index=False)
+test_df.to_csv(os.path.join(args.output_path, 'test.csv'), index=False)

@@ -2,10 +2,17 @@ import pandas as pd
 import cv2
 import os
 
+samples = []
 
-samples = pd.read_csv('samples.csv')
+for root, _, files in os.walk(os.path.join('data_splits')):
+    if 'samples.csv' in files:
+        print(root)
+        df = pd.read_csv(os.path.join(root, 'samples.csv'))
+        samples.append(df)
 
-for clip_name, df in samples.groupby('clip_name'):
+all_samples = pd.concat(samples, ignore_index=True)
+
+for clip_name, df in all_samples.groupby('clip_name'):
     frames = set(df['frame'])
     vidcap = cv2.VideoCapture(os.path.join('frame', clip_name + '.mpg'))
     frame_count = 0

@@ -19,12 +19,14 @@ def main(args):
     )
 
     data_module = CHPDataModule(
-        data_path=args.data_path,
+        data_split_path=args.data_split_path,
+        data_image_path=args.data_image_path,
+        data_pose_path=args.data_pose_path,
         tokenizer=model.tokenizer,
         batch_size=args.batch_size,
-        batch_size_test=args.batch_size_test,
         max_length=args.max_length,
         crop_size=args.crop_size,
+        add_gaussian_noise=args.add_gaussian_noise,
         use_image=args.use_image,
         use_pose=args.use_pose,
         dataloader_num_workers=args.dataloader_num_workers
@@ -33,7 +35,7 @@ def main(args):
     loss_checkpoint_callback = ModelCheckpoint(
         monitor='val_loss_epoch',
         filename='{epoch}-{val_loss_epoch:.6f}',
-        save_top_k=args.early_stop_patience,
+        save_top_k=1,
         mode='min',
     )
     early_stop_callback = EarlyStopping(

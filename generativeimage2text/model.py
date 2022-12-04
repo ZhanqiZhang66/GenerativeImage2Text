@@ -50,6 +50,9 @@ def get_git_model(tokenizer, param):
         nn.Linear(visual_feature_size, visual_feature_size * 4),
         nn.ReLU(),
         nn.Dropout(p=0.1),
+        nn.Linear(visual_feature_size * 4, visual_feature_size * 4),
+        nn.ReLU(),
+        nn.Dropout(p=0.1),
         nn.Linear(visual_feature_size * 4, visual_feature_size),
         nn.ReLU(),
     )
