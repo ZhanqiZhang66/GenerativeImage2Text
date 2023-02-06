@@ -790,6 +790,7 @@ class CaptioningModel(nn.Module):
         use_history_for_infer=False,
         pooling_images=None,
         num_image_with_embedding=0,
+        num_pose_with_embedding=0,
     ):
         super().__init__()
         self.image_encoder = visual
@@ -833,11 +834,18 @@ class CaptioningModel(nn.Module):
         self.pooling_images = pooling_images
 
         if num_image_with_embedding:
-            logging.info('creating temperal embedding')
+            logging.info('creating temperal embedding for images')
             self.img_temperal_embedding = nn.ParameterList(
                 nn.Parameter(torch.zeros(1, 1, self.textual.visual_feature_size)) for _ in range(num_image_with_embedding)
             )
         self.num_image_with_embedding = num_image_with_embedding
+
+        if num_pose_with_embedding:
+            logging.info('creating temperal embedding for poses')
+            self.pose_temporal_embedding = nn.ParameterList(
+                nn.Parameter(torch.zeros(1, 1, self.textual.visual_feature_size)) for _ in range(num_pose_with_embedding)
+            )
+        self.num_pose_with_embedding = num_pose_with_embedding
 
     def forward(self, batch, infer=False):
         visual_features = []
@@ -857,10 +865,25 @@ class CaptioningModel(nn.Module):
                 visual_features.append(self.image_encoder(batch['image']))
         
         if 'pose' in batch:
-            visual_features.append(self.pose_encoder(batch['pose']).unsqueeze(dim=1))
+            # TODO: add pose temporal embedding
+            if self.num_pose_with_embedding:
+                if isinstance(batch['pose'], (list, tuple)):
+                    features = [self.pose_encoder(im) for im in batch['pose']]
+                features = [f + e for f, e in zip(features, self.pose_temporal_embedding)]
+            else:
+                visual_features.append(self.pose_encoder(batch['pose']).unsqueeze(dim=1))
+
+            #visual_features.append(self.pose_encoder(batch['pose']).unsqueeze(dim=1))
 
         if 'vae_pose' in batch:
-            visual_features.append(self.vae_pose_encoder(batch['vae_pose']).unsqueeze(dim=1))
+            #TODO: add vae pose temporal embedding
+            if self.num_pose_with_embedding:
+                if isinstance(batch['vae_pose'], (list, tuple)):
+                    features = [self.vae_pose_encoder(im) for im in batch['vae_pose']]
+                features = [f + e for f, e in zip(features, self.pose_temporal_embedding)]
+            else:
+                visual_features.append(self.vae_pose_encoder(batch['vae_pose']).unsqueeze(dim=1))
+            #visual_features.append(self.vae_pose_encoder(batch['vae_pose']).unsqueeze(dim=1))
 
         if visual_features:
             visual_features = torch.cat(visual_features, dim=-2)

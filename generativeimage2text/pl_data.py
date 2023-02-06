@@ -19,7 +19,7 @@ class CHPDatasetBase(Dataset):
     def __init__(self, csv_path: str, tokenizer: BertTokenizer, max_length: Optional[int], crop_size: int) -> None:
         super().__init__()
         self.data = pd.read_csv(csv_path)
-        self.image_path = os.path.join(os.path.dirname(csv_path), 'images')
+        self.image_path = os.path.join(os.path.dirname(os.path.dirname(csv_path)), 'images')
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -34,8 +34,11 @@ class CHPDatasetBase(Dataset):
         ])
 
         self.pose_dict = {}
-        data_path = os.path.dirname(csv_path)
+        data_path0 = os.path.dirname(csv_path)
+        data_path = os.path.dirname(data_path0)
+
         for file_name in os.listdir(os.path.join(data_path, 'pose_clean')):
+
             df = pd.read_csv(os.path.join(data_path, 'pose_clean', file_name))
             assert file_name.endswith('.csv')
             self.pose_dict[file_name[:-4]] = df.set_index('frame')
@@ -47,7 +50,7 @@ class CHPDatasetBase(Dataset):
         for file_name in os.listdir(os.path.join(data_path, 'pose_clean')):
             assert file_name.endswith('.csv')
             file = file_name[:-4]
-            path_to_latent_vector = os.path.join(vae_path, "results", file, model_name,
+            path_to_latent_vector = os.path.join(vae_path, model_name, "results", file,'VAME',
                                                  'kmeans-' + str(10), "")
             latent_vector = np.load(os.path.join(path_to_latent_vector, 'latent_vector_' + file + '.npy'))
             self.vae_pose_dict[file] = latent_vector
@@ -60,7 +63,8 @@ class CHPDatasetBase(Dataset):
         return self.pose_dict[clip].loc[frame].to_numpy(dtype=np.float32)
 
     def load_vae_pose(self, clip: str, frame: int):
-        return self.vae_pose_dict[clip][frame]
+
+        return self.vae_pose_dict[clip][frame-60]
 
     def __len__(self):
         return self.data.shape[0]
@@ -71,7 +75,7 @@ class CHPDataset(CHPDatasetBase):
         super().__init__(csv_path, tokenizer, max_length, crop_size)
         self.image = image
         self.pose = pose
-        self.vae_pase = vae_pose
+        self.vae_pose = vae_pose
 
     def __getitem__(self, index):
         row = self.data.iloc[index]
@@ -106,7 +110,8 @@ class CHPDataset(CHPDatasetBase):
             batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
 
         if self.vae_pose:
-            batch['vae_pose'] = self.load_vae_pose(row['clip_name'], row['frame'])
+
+            batch['vae_pose'] = self.load_vae_pose(row['clip_name'],  row['frame'])
 
         return batch
 
@@ -140,7 +145,7 @@ class CHPTestDataset(CHPDatasetBase):
             batch['pose'] = self.load_pose(row['clip_name'], row['frame'])
 
         if self.vae_pose:
-            batch['vae_pose'] = self.load_vae_pose(row['clip_name'], row['frame'])
+            batch['vae_pose'] = self.load_vae_pose(row['clip_name'],  row['frame'])
 
         return batch
 

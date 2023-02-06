@@ -32,6 +32,8 @@ class PoseImageCaptioningModel(pl.LightningModule):
             git_param = load_from_yaml_file(
                 f'aux_data/models/{model_name}/parameter.yaml')
         self.git_model = get_git_model(self.tokenizer, git_param)
+        #
+        best_checkpoint = f'lightning_logs/version_3/checkpoints/epoch=29-val_loss_epoch=4.157999.ckpt'
         pretrained = f'output/{model_name}/snapshot/model.pt'
         checkpoint = torch.load(pretrained)  #torch_load(pretrained)['model']
         load_state_dict(self.git_model, checkpoint)
@@ -79,6 +81,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        print("Validation\n")
         loss_dict = self(batch)
         loss = sum(loss_dict.values())
 
@@ -93,11 +96,15 @@ class PoseImageCaptioningModel(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
+        print("Testing\n")
         inputs = {}
         if 'image' in batch:
             inputs['image'] = batch['image']
         if 'pose' in batch:
             inputs['pose'] = batch['pose']
+        if 'vae_pose' in batch:
+            inputs['vae_pose'] = batch['vae_pose']
+
         references = batch['reference']
         result = self(inputs, infer=True)
         predictions = self.tokenizer.batch_decode(
@@ -146,6 +153,7 @@ class PoseImageCaptioningModel(pl.LightningModule):
                 results[key].extend(value)
 
         self.test_results = results
+        print(results['sample_id'],  results['predictions'])
 
         # BertScore
         _, _, bert_score_f1 = bert_score.score(
@@ -164,7 +172,10 @@ class PoseImageCaptioningModel(pl.LightningModule):
         }
 
         tokenizer = PTBTokenizer()
-        tokenized_candidates = tokenizer.tokenize(cider_candidates)
+        try:
+            tokenized_candidates = tokenizer.tokenize(cider_candidates)
+        except:
+            print(results['sample_id'],  results['predictions'])
         tokenized_references = tokenizer.tokenize(cider_references)
 
         cider_score, _ = Cider().compute_score(tokenized_candidates, tokenized_references)

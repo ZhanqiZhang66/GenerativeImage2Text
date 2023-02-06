@@ -12,10 +12,13 @@ from generativeimage2text.pl_model import PoseImageCaptioningModel
 def main(args):
     seed_everything(args.seed)
 
-    model = PoseImageCaptioningModel(
-        args.model_name,
-        args.tokenizer_name,
-        learning_rate=args.learning_rate
+    model = PoseImageCaptioningModel.load_from_checkpoint(
+        # load from the best checkpoint
+        r'D:\OneDrive - UC San Diego\GitHub\GenerativeImage2Text\lightning_logs\version_3\checkpoints\epoch=29-val_loss_epoch=4.157999.ckpt'
+        # args.model_name,
+        # args.tokenizer_name,
+        # learning_rate=args.learning_rate
+
     )
 
     data_module = CHPDataModule(
@@ -74,7 +77,8 @@ if __name__ == "__main__":
                         action='store_false', default=True)
     parser.add_argument('--skip_test', dest='do_test',
                         action='store_false', default=True)
-    parser.add_argument('--save_test_results', type=str, default=True)
+    parser.add_argument('--save_test_results', type=str)
+    parser.add_argument('--load_checkpoints', type=str)
     parser = Trainer.add_argparse_args(parser)
     parser = PoseImageCaptioningModel.add_argparse_args(parser)
     parser = CHPDataModule.add_argparse_args(parser)
